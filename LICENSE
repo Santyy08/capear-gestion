@@ -1,0 +1,54 @@
+LICENCIA COMERCIAL DE VALIORA
+CAPEAR Gestión
+
+Copyright (c) 2026 Valiora. Todos los derechos reservados.
+
+1. Titularidad
+
+El software «CAPEAR Gestión», que comprende su código fuente y objeto, la
+base de datos y sus migraciones, el diseño de la interfaz y la documentación
+que lo acompaña (en adelante, «el Software»), es propiedad de Valiora y está
+protegido por la Ley 11.723 de Propiedad Intelectual de la República
+Argentina y por los tratados internacionales aplicables.
+
+2. Ausencia de licencia general
+
+Salvo lo previsto en las cláusulas 3 y 4, esta licencia no concede ningún
+derecho sobre el Software. Sin autorización previa y por escrito de Valiora,
+queda prohibido copiar, modificar, adaptar, traducir, distribuir, publicar,
+sublicenciar, vender, alquilar o ceder el Software, total o parcialmente;
+crear obras derivadas a partir de él; y usarlo para prestar servicios a
+terceros.
+
+3. Uso académico
+
+Se autoriza a los docentes y evaluadores de las Prácticas Profesionalizantes
+en cuyo marco se desarrolló el Software, y al Instituto La Salette, a acceder
+al Software, ejecutarlo en entornos de prueba y revisarlo con el único fin de
+evaluar dichas prácticas. Esta autorización no incluye ninguno de los actos
+prohibidos en la cláusula 2.
+
+4. Uso por Rectificaciones CAPEAR
+
+Rectificaciones CAPEAR puede usar el Software en su operación en los términos
+del acuerdo comercial vigente con Valiora. A falta de previsión expresa en ese
+acuerdo, se aplica la cláusula 2.
+
+5. Componentes de terceros
+
+El Software utiliza bibliotecas y componentes de terceros que se rigen por sus
+propias licencias. Esta licencia no modifica esas licencias.
+
+6. Exclusión de garantías
+
+El Software se entrega «tal cual», sin garantías de ningún tipo, expresas o
+implícitas, incluidas las de comerciabilidad, idoneidad para un fin
+determinado y no infracción, salvo lo que disponga el acuerdo comercial
+mencionado en la cláusula 4. En ningún caso Valiora será responsable por
+daños derivados del uso del Software fuera de los términos de esta licencia.
+
+7. Ley aplicable
+
+Esta licencia se rige por las leyes de la República Argentina.
+
+Las solicitudes de autorización se dirigen a Valiora.

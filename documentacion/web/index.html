@@ -1,0 +1,785 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CAPEAR Gestión</title>
+<meta name="description" content="CAPEAR Gestión: sistema de presupuestos y órdenes de trabajo para un taller de rectificación de motores. Proyecto de Prácticas Profesionalizantes, Instituto La Salette.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%23111%27/%3E%3Ctext x=%2716%27 y=%2722%27 font-family=%27Arial%27 font-size=%2716%27 font-weight=%27700%27 fill=%27%23fff%27 text-anchor=%27middle%27%3EC%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400..500&display=swap">
+<style>
+  /* Concepto: el sitio se lee como el recorrido de un motor por el taller.
+     Los códigos de documento (PR-00047 → OT-00124) son el hilo conductor, y la
+     paleta es la de la propia aplicación: grises cálidos, acento cobalto y los
+     colores de las etapas de una orden. */
+  :root {
+    --bg: #f8f8f7;
+    --surface: #ffffff;
+    --sunken: #f1f1ee;
+    --line: #e2e2dd;
+    --fg: #1c1c1a;
+    --muted: #5d5d56;
+    --accent: #2d57d1;
+    --accent-soft: #e9eefb;
+    --accent-fg: #ffffff;
+    --shadow: 0 1px 2px rgb(28 28 26 / .06), 0 12px 32px -12px rgb(28 28 26 / .18);
+
+    --st-ingreso: #8a94a3;
+    --st-diagnostico: #2e6ee6;
+    --st-aprobacion: #d97a0b;
+    --st-reparacion: #7a5ce6;
+    --st-entrega: #16a06c;
+
+    --f1: #64748b;
+    --f2: #0f766e;
+    --f3: #1d4ed8;
+    --f4: #b45309;
+    --f5: #7c3aed;
+    --f6: #047857;
+    --f7: #be123c;
+    --plan: #cbcbc4;
+
+    --font-display: "Newsreader", "Iowan Old Style", Georgia, serif;
+    --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #131312; --surface: #1c1c1a; --sunken: #242421; --line: #34342f; --fg: #eeeeeb; --muted: #a8a8a0;
+      --accent: #85a2f4; --accent-soft: #1e2744; --accent-fg: #0f1530;
+      --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 16px 40px -16px rgb(0 0 0 / .7);
+      --st-ingreso: #a3acb9; --st-diagnostico: #6b9cf5; --st-aprobacion: #f0a347; --st-reparacion: #a891f2; --st-entrega: #4cc995;
+      --f1: #94a3b8; --f2: #2dd4bf; --f3: #6b93f5; --f4: #f59e0b; --f5: #a78bfa; --f6: #34d399; --f7: #fb7185; --plan: #4a4a44;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #131312; --surface: #1c1c1a; --sunken: #242421; --line: #34342f; --fg: #eeeeeb; --muted: #a8a8a0;
+    --accent: #85a2f4; --accent-soft: #1e2744; --accent-fg: #0f1530;
+    --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 16px 40px -16px rgb(0 0 0 / .7);
+    --st-ingreso: #a3acb9; --st-diagnostico: #6b9cf5; --st-aprobacion: #f0a347; --st-reparacion: #a891f2; --st-entrega: #4cc995;
+    --f1: #94a3b8; --f2: #2dd4bf; --f3: #6b93f5; --f4: #f59e0b; --f5: #a78bfa; --f6: #34d399; --f7: #fb7185; --plan: #4a4a44;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  figure { margin: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: calc(64px + env(safe-area-inset-top, 0px)); }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.6 var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  body::before {
+    content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg);
+  }
+  a { color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+  .envoltura {
+    max-width: 1160px; margin: 0 auto;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .codigo { font-family: var(--font-mono); font-size: .92em; letter-spacing: -.01em; }
+  .etiqueta { font-size: 12.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  h1, h2, h3 { text-wrap: balance; margin: 0; }
+  h2 { font-size: clamp(26px, 3.4vw, 36px); line-height: 1.15; letter-spacing: -.02em; font-weight: 650; }
+  h3 { font-size: 18px; line-height: 1.3; font-weight: 600; }
+  p { margin: 0; }
+  .bajada { color: var(--muted); max-width: 62ch; }
+
+  /* Barra superior */
+  .barra {
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .barra .envoltura { display: flex; align-items: center; gap: 24px; min-height: 60px; }
+  .marca { display: flex; flex-direction: column; line-height: 1.05; text-decoration: none; color: var(--fg); }
+  .marca b { font-weight: 700; letter-spacing: .06em; font-size: 15px; }
+  .marca span { font-size: 13px; color: var(--muted); }
+  .menu { display: flex; gap: 4px; margin-left: auto; overflow-x: auto; scrollbar-width: none; }
+  .menu::-webkit-scrollbar { display: none; }
+  .menu a { color: var(--muted); text-decoration: none; font-size: 14.5px; padding: 6px 10px; border-radius: 8px; white-space: nowrap; }
+  .menu a:hover { color: var(--fg); background: var(--sunken); }
+
+  /* Portada */
+  .portada { padding-block: clamp(40px, 7vw, 88px) 0; }
+  .portada .etiqueta { display: block; margin-bottom: 18px; }
+  .portada h1 {
+    font-family: var(--font-display); font-weight: 500; font-size: clamp(38px, 6vw, 68px);
+    line-height: 1.04; letter-spacing: -.02em; max-width: 15ch;
+  }
+  .portada .bajada { font-size: clamp(17px, 1.6vw, 19px); margin-top: 22px; }
+  .hilo {
+    margin-top: 34px; display: flex; flex-wrap: wrap; align-items: center; gap: 14px 18px;
+  }
+  .documento {
+    display: grid; gap: 2px; padding: 12px 16px; border: 1px solid var(--line); border-radius: 12px;
+    background: var(--surface); min-width: 0;
+  }
+  .documento .codigo { font-size: 20px; font-weight: 500; }
+  .documento small { color: var(--muted); font-size: 13.5px; }
+  .estado { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; }
+  .estado::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .flecha { display: grid; justify-items: center; gap: 4px; color: var(--muted); font-size: 13px; }
+  .flecha i { display: block; width: 72px; height: 2px; background: var(--accent); position: relative; transform-origin: left; animation: trazo .9s .3s cubic-bezier(.2,.7,.2,1) both; }
+  .flecha i::after { content: ""; position: absolute; right: -1px; top: -4px; border: 5px solid transparent; border-left: 8px solid var(--accent); border-right: 0; }
+  .documento.orden { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); animation: llega .7s 1s ease-out both; }
+  @keyframes trazo { from { transform: scaleX(.35); } }
+  @keyframes llega { from { transform: translateX(-8px); opacity: .55; } }
+  .regla-corta { color: var(--muted); font-size: 14.5px; flex-basis: 100%; }
+  .regla-corta b { color: var(--fg); font-weight: 600; }
+  .acciones { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px; }
+  .boton {
+    display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border-radius: 10px;
+    font: 600 15px/1 var(--font-sans); text-decoration: none; border: 1px solid var(--line); color: var(--fg); background: var(--surface); cursor: pointer;
+  }
+  .boton.primario { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+  .boton:hover { border-color: var(--muted); }
+  .ventana {
+    margin-top: clamp(36px, 5vw, 56px); border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+    background: var(--surface); box-shadow: var(--shadow);
+  }
+  .ventana img { display: block; width: 100%; height: auto; }
+  .ventana figcaption { padding: 10px 16px; font-size: 13.5px; color: var(--muted); border-top: 1px solid var(--line); }
+
+  /* Cifras */
+  .cifras { padding-block: 48px 8px; }
+  .cifras ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .cifras li { padding: 20px 16px 18px; border-left: 1px solid var(--line); display: grid; gap: 4px; align-content: start; }
+  .cifras li:first-child { border-left: 0; padding-left: 0; }
+  .cifras b { font-size: clamp(24px, 2.6vw, 30px); font-weight: 650; letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .cifras span { font-size: 13.5px; color: var(--muted); line-height: 1.4; }
+
+  section.bloque { padding-block: clamp(56px, 8vw, 96px) 0; }
+  .encabezado { display: grid; gap: 12px; margin-bottom: 32px; }
+
+  /* Problema */
+  .contraste { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .columna { border: 1px solid var(--line); border-radius: 14px; padding: 24px; background: var(--surface); display: grid; gap: 14px; align-content: start; min-width: 0; }
+  .columna.antes { background: var(--sunken); }
+  .columna ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+  .columna li { display: grid; grid-template-columns: 22px 1fr; gap: 10px; }
+  .columna li::before { content: "–"; color: var(--muted); font-weight: 600; text-align: center; }
+  .columna.despues li::before { content: "✓"; color: var(--accent); }
+
+  /* Recorrido */
+  .recorrido { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 28px; align-items: start; }
+  .pasos { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; position: sticky; top: calc(84px + env(safe-area-inset-top, 0px)); }
+  .paso {
+    width: 100%; display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start; text-align: left;
+    padding: 12px; border-radius: 12px; border: 1px solid transparent; background: none; color: var(--fg); cursor: pointer; font: inherit;
+  }
+  .paso:hover { background: var(--sunken); }
+  .paso[aria-selected="true"] { background: var(--surface); border-color: var(--line); box-shadow: var(--shadow); }
+  .paso .n { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font: 500 14px var(--font-mono); border: 1px solid var(--line); color: var(--muted); }
+  .paso[aria-selected="true"] .n { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+  .paso strong { display: block; font-weight: 600; font-size: 15.5px; line-height: 1.35; }
+  .paso small { display: block; color: var(--muted); font-size: 13.5px; line-height: 1.4; margin-top: 2px; }
+  .panel { display: grid; gap: 18px; min-width: 0; }
+  .panel figure { margin: 0; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--surface); box-shadow: var(--shadow); position: relative; }
+  .panel figure img { display: block; width: 100%; height: auto; }
+  .panel figure.documento-impreso { background: #ffffff; }
+  .panel .celular {
+    position: absolute; right: 4%; bottom: 6%; width: 22%; border-radius: 18px; border: 6px solid #1c1c1a; box-shadow: var(--shadow); background: #fff;
+  }
+  .panel .texto { display: grid; gap: 12px; max-width: 68ch; }
+  .panel .texto p { color: var(--muted); }
+  .panel .texto p b { color: var(--fg); font-weight: 600; }
+  .regla { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start; padding: 14px 16px; border-radius: 12px; background: var(--accent-soft); }
+  .regla .etiqueta { color: var(--accent); }
+  .regla p { color: var(--fg); }
+  .etapas { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13.5px; }
+  .etapas span { display: inline-flex; align-items: center; gap: 6px; }
+  .etapas span::before { content: ""; width: 9px; height: 9px; border-radius: 3px; background: var(--c); }
+  .navegacion { display: flex; gap: 8px; align-items: center; }
+  .navegacion .contador { margin-left: auto; color: var(--muted); font: 13px var(--font-mono); }
+
+  /* Cronograma */
+  .linea-tiempo { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); padding: 18px 18px 10px; overflow: hidden; }
+  .lt-fila { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 16px; align-items: center; }
+  .lt-cabecera .pista { height: 26px; }
+  .pista { position: relative; height: 30px; }
+  .mes { position: absolute; top: 0; font-size: 12.5px; color: var(--muted); font-weight: 600; padding-left: 6px; border-left: 1px solid var(--line); height: 100%; white-space: nowrap; overflow: hidden; }
+  .mes .corto { display: none; }
+  .guias { position: absolute; inset: 0; pointer-events: none; }
+  .guias i { position: absolute; top: 0; bottom: 0; border-left: 1px dashed var(--line); }
+  .guias .entrega { border-left: 2px solid var(--f7); }
+  .lt-filas { position: relative; display: grid; gap: 2px; }
+  .lt-filas > .guias { left: calc(230px + 16px); }
+  button.lt-fila { width: 100%; padding: 6px 8px; margin: 0 -8px; width: calc(100% + 16px); border: 0; border-radius: 10px; background: none; color: var(--fg); font: inherit; text-align: left; cursor: pointer; }
+  button.lt-fila:hover { background: var(--sunken); }
+  button.lt-fila[aria-pressed="true"] { background: var(--accent-soft); }
+  .lt-nombre { font-size: 14.5px; font-weight: 500; display: flex; gap: 8px; align-items: baseline; min-width: 0; }
+  .lt-nombre .codigo { color: var(--muted); font-size: 13px; }
+  .barra-fase { position: absolute; top: 9px; height: 12px; border-radius: 4px; background: var(--c); }
+  .barra-fase.plan { background: var(--plan); }
+  .barra-fase .tarea { position: absolute; top: 0; bottom: 0; border-left: 2px solid var(--surface); }
+  .hito { position: absolute; top: 9px; width: 12px; height: 12px; transform: translateX(-50%) rotate(45deg); background: var(--surface); border: 2px solid var(--c); }
+  .lt-separador { height: 1px; background: var(--line); margin: 6px 0; }
+  .lt-leyenda { display: flex; flex-wrap: wrap; gap: 8px 18px; padding-top: 10px; margin-top: 8px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+  .lt-leyenda span { display: inline-flex; align-items: center; gap: 7px; }
+  .muestra { width: 18px; height: 8px; border-radius: 3px; background: var(--f3); display: inline-block; }
+  .detalle-fase { margin-top: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+  .detalle-fase header { padding: 16px 18px; display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; border-bottom: 1px solid var(--line); }
+  .detalle-fase header h3::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px; background: var(--c); margin-right: 10px; }
+  .detalle-fase header span { color: var(--muted); font-size: 14px; }
+  .tabla { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { padding: 10px 18px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+  tr:last-child td { border-bottom: 0; }
+  th { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  td.fechas { white-space: nowrap; font-family: var(--font-mono); font-size: 13px; font-variant-numeric: tabular-nums; }
+  td .estimada { color: var(--muted); font-size: 12.5px; }
+  .desvios { margin-top: 28px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .desvios article { display: grid; gap: 6px; align-content: start; padding-top: 14px; border-top: 2px solid var(--fg); }
+  .desvios p { color: var(--muted); font-size: 15px; }
+
+  /* Equipo */
+  .equipo { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .persona { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); padding: 22px; display: grid; gap: 14px; align-content: start; min-width: 0; }
+  .persona .cara { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; font-weight: 650; background: var(--accent-soft); color: var(--accent); letter-spacing: .02em; }
+  .persona .rol { color: var(--accent); font-weight: 600; font-size: 14.5px; line-height: 1.4; }
+  .persona ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 15px; display: grid; gap: 6px; }
+  .contexto { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 8px 28px; color: var(--muted); font-size: 15px; }
+  .contexto b { color: var(--fg); font-weight: 600; }
+
+  /* Técnica */
+  .arquitectura { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .capa { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); padding: 20px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+  .capa p { color: var(--muted); font-size: 15px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chips span { font-size: 13px; padding: 3px 9px; border-radius: 999px; background: var(--sunken); border: 1px solid var(--line); }
+  .calidad { margin-top: 16px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+  .calidad div { padding: 16px 0 0; border-top: 1px solid var(--line); display: grid; gap: 4px; }
+  .calidad b { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  .calidad span { color: var(--muted); font-size: 14px; }
+
+  /* Pie */
+  .pie { margin-top: clamp(64px, 9vw, 112px); border-top: 1px solid var(--line); padding-block: 32px 48px; }
+  .pie .envoltura { display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; color: var(--muted); font-size: 14.5px; }
+  .pie b { color: var(--fg); font-weight: 600; }
+
+  @media (max-width: 960px) {
+    .cifras ul { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .cifras li:nth-child(4) { border-left: 0; padding-left: 0; }
+    .cifras li:nth-child(-n+3) { border-bottom: 1px solid var(--line); }
+    .recorrido { grid-template-columns: minmax(0, 1fr); }
+    .pasos { position: static; display: flex; overflow-x: auto; gap: 6px; padding-bottom: 6px; scrollbar-width: thin; }
+    .pasos li { flex: 0 0 auto; }
+    .paso { grid-template-columns: 26px auto; padding: 8px 12px 8px 8px; align-items: center; }
+    .paso .n { width: 26px; height: 26px; font-size: 12.5px; }
+    .paso small { display: none; }
+    .paso strong { font-size: 14.5px; white-space: nowrap; }
+    .desvios, .equipo, .arquitectura { grid-template-columns: minmax(0, 1fr); }
+    .calidad { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 720px) {
+    .menu { display: none; }
+    .contraste { grid-template-columns: minmax(0, 1fr); }
+    .lt-fila { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+    .lt-cabecera .lt-nombre { display: none; }
+    .lt-filas > .guias { left: 0; }
+    .cifras ul { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .cifras li { border-left: 0; padding-left: 0; border-bottom: 1px solid var(--line); }
+    .cifras li:nth-child(even) { border-left: 1px solid var(--line); padding-left: 16px; }
+    .cifras li:nth-last-child(-n+2) { border-bottom: 0; }
+    .pie .envoltura { grid-template-columns: minmax(0, 1fr); }
+    .panel .celular { width: 28%; border-width: 4px; border-radius: 12px; }
+    th, td { padding: 10px 12px; }
+    .mes .largo { display: none; }
+    .mes .corto { display: inline; }
+    .hilo { gap: 10px; }
+    .documento { padding: 10px 12px; }
+    .documento .codigo { font-size: 17px; }
+    .flecha { font-size: 11.5px; }
+    .flecha i { width: 34px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .flecha i, .documento.orden { animation: none; }
+  }
+</style>
+
+<header class="barra">
+  <div class="envoltura">
+    <a class="marca" href="#proyecto"><b>CAPEAR</b><span>Gestión</span></a>
+    <nav class="menu" aria-label="Secciones">
+      <a href="#problema">El problema</a>
+      <a href="#recorrido">Recorrido</a>
+      <a href="#cronograma">Cronograma</a>
+      <a href="#equipo">Equipo</a>
+      <a href="#tecnica">Cómo está hecho</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="portada" id="proyecto">
+    <div class="envoltura">
+      <span class="etiqueta">Prácticas Profesionalizantes 2026 · Instituto La Salette · 6.º año Computación</span>
+      <h1>Presupuestar un motor ya no empieza en un cuaderno.</h1>
+      <p class="bajada">CAPEAR Gestión es el sistema que diseñamos y construimos para Rectificaciones CAPEAR, un taller de rectificación de motores: presupuestos con precios de referencia, la decisión del cliente y órdenes de trabajo que siguen cada pieza por las islas del taller.</p>
+
+      <div class="hilo" aria-label="Del presupuesto a la orden de trabajo">
+        <div class="documento">
+          <small>Presupuesto inicial</small>
+          <span class="codigo">PR-00047</span>
+          <span class="estado" style="color: var(--st-entrega)">Aceptado</span>
+        </div>
+        <div class="flecha" aria-hidden="true"><i></i>el cliente acepta</div>
+        <div class="documento orden">
+          <small>Orden de trabajo</small>
+          <span class="codigo">OT-00124</span>
+          <span class="estado" style="color: var(--st-ingreso)">Ingreso pendiente</span>
+        </div>
+        <p class="regla-corta"><b>Una aceptación, una orden.</b> La orden nace sola, con el cliente, el motor y los precios del presupuesto. Nada se vuelve a cargar.</p>
+      </div>
+
+      <div class="acciones">
+        <a class="boton primario" href="#recorrido">Ver el recorrido</a>
+        <a class="boton" href="#cronograma">Cómo lo planificamos</a>
+      </div>
+
+      <figure class="ventana">
+        <img src="img/inicio.jpg" alt="Pantalla de inicio de CAPEAR Gestión: presupuestos pendientes, órdenes en diagnóstico, en reparación y listas para entregar, y el tablero del taller por etapa" width="1600" height="1000">
+        <figcaption>Inicio: el estado del taller de un vistazo. Todas las capturas usan datos ficticios de demostración.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="cifras" aria-label="El proyecto en números">
+    <div class="envoltura">
+      <ul>
+        <li><b>4 meses</b><span>de agosto a noviembre de 2026</span></li>
+        <li><b>~500 h</b><span>de trabajo del equipo, unas 10 por semana cada uno</span></li>
+        <li><b>39</b><span>entregas revisadas e integradas (pull requests)</span></li>
+        <li><b>13.147</b><span>pruebas unitarias y de componentes aprobadas</span></li>
+        <li><b>79</b><span>migraciones de la base de datos</span></li>
+        <li><b>12/11/2026</b><span>en uso real en el taller</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="bloque" id="problema">
+    <div class="envoltura">
+      <div class="encabezado">
+        <span class="etiqueta">El problema</span>
+        <h2>El cuello de botella era el presupuesto.</h2>
+        <p class="bajada">En CAPEAR, cada presupuesto se armaba a mano y, cuando el cliente aceptaba, había que volver a cargarlo todo para el taller. Eso costaba tiempo y abría la puerta a errores.</p>
+      </div>
+      <div class="contraste">
+        <div class="columna antes">
+          <h3>Antes</h3>
+          <ul>
+            <li>Operaciones y precios consultados en listas impresas o de memoria.</li>
+            <li>Trabajos iguales con precios distintos y cuentas hechas a mano.</li>
+            <li>Al aceptar, la información se reescribía para armar la orden.</li>
+            <li>El avance de cada motor, anotado en cuadernos.</li>
+          </ul>
+        </div>
+        <div class="columna despues">
+          <h3>Con CAPEAR Gestión</h3>
+          <ul>
+            <li>Catálogo tipificado y lista FACRA: el precio sugerido sale de la lista del motor, del 1 al 13.</li>
+            <li>Descuento por categoría, recargo interno e IVA calculados con decimales exactos.</li>
+            <li>La orden de trabajo se crea sola al aceptar, sin cargar nada otra vez.</li>
+            <li>Cada orden sigue sus islas, piezas y fotos; planta trabaja sin ver importes.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="bloque" id="recorrido">
+    <div class="envoltura">
+      <div class="encabezado">
+        <span class="etiqueta">Recorrido</span>
+        <h2>De la primera consulta al motor en el taller, en siete pasos.</h2>
+        <p class="bajada">Elegí un paso para ver la pantalla real y la regla del negocio que el sistema hace cumplir. También podés usar las flechas del teclado.</p>
+      </div>
+
+      <div class="recorrido">
+        <ol class="pasos" role="tablist" aria-label="Pasos del recorrido">
+          <li><button class="paso" role="tab" id="tab-1" aria-controls="paso-1" aria-selected="true"><span class="n">1</span><span><strong>Cliente y motor</strong><small>Alta guiada, con datos de la lista FACRA</small></span></button></li>
+          <li><button class="paso" role="tab" id="tab-2" aria-controls="paso-2" aria-selected="false" tabindex="-1"><span class="n">2</span><span><strong>Presupuesto</strong><small>Asistente de cuatro pasos con precio sugerido</small></span></button></li>
+          <li><button class="paso" role="tab" id="tab-3" aria-controls="paso-3" aria-selected="false" tabindex="-1"><span class="n">3</span><span><strong>Documento y envío</strong><small>PDF congelado, por WhatsApp o correo</small></span></button></li>
+          <li><button class="paso" role="tab" id="tab-4" aria-controls="paso-4" aria-selected="false" tabindex="-1"><span class="n">4</span><span><strong>Decisión del cliente</strong><small>Aceptación o rechazo con motivo</small></span></button></li>
+          <li><button class="paso" role="tab" id="tab-5" aria-controls="paso-5" aria-selected="false" tabindex="-1"><span class="n">5</span><span><strong>Orden de trabajo</strong><small>Etapas, diagnóstico y seña</small></span></button></li>
+          <li><button class="paso" role="tab" id="tab-6" aria-controls="paso-6" aria-selected="false" tabindex="-1"><span class="n">6</span><span><strong>Taller por islas</strong><small>Cada pieza en su estación</small></span></button></li>
+          <li><button class="paso" role="tab" id="tab-7" aria-controls="paso-7" aria-selected="false" tabindex="-1"><span class="n">7</span><span><strong>Recepción y fotos</strong><small>Constancia firmada y fotos desde el celular</small></span></button></li>
+        </ol>
+
+        <div>
+          <article class="panel" role="tabpanel" id="paso-1" aria-labelledby="tab-1">
+            <figure><img src="img/paso-1.jpg" alt="Formulario de alta de un motor con marca, modelo y motor del nomenclador FACRA" width="1600" height="1000"></figure>
+            <div class="texto">
+              <h3>Cliente y motor</h3>
+              <p>Se registra al cliente con su <b>categoría comercial</b>, que define el descuento. El motor se carga en cascada: <b>marca, modelo y motor</b> del nomenclador FACRA, que completa solo la lista de precios, los cilindros y las válvulas.</p>
+              <div class="regla"><span class="etiqueta">Regla</span><p>El CUIT se valida con su dígito verificador y el sistema avisa si ya existe otro cliente con el mismo número.</p></div>
+            </div>
+          </article>
+          <article class="panel" role="tabpanel" id="paso-2" aria-labelledby="tab-2" hidden>
+            <figure><img src="img/paso-2.jpg" alt="Paso de ítems del asistente de presupuesto, con el catálogo a la derecha y el resumen económico" width="1600" height="1000" loading="lazy"></figure>
+            <div class="texto">
+              <h3>Presupuesto</h3>
+              <p>Un asistente de cuatro pasos arma el presupuesto. Las operaciones salen del <b>catálogo</b> con el precio sugerido de la lista FACRA del motor; se pueden tildar desde la planilla del taller o agregar líneas manuales. El <b>resumen económico</b> calcula descuento, recargo interno e IVA mientras se escribe.</p>
+              <div class="regla"><span class="etiqueta">Regla</span><p>Cada línea guarda una copia de su precio. Cambiar el catálogo después no altera ningún presupuesto ya emitido.</p></div>
+            </div>
+          </article>
+          <article class="panel" role="tabpanel" id="paso-3" aria-labelledby="tab-3" hidden>
+            <figure class="documento-impreso"><img src="img/paso-3.jpg" alt="Documento del presupuesto PR-00047 para el cliente, con los datos del taller, del cliente y del motor y los precios finales" width="1272" height="935" loading="lazy"></figure>
+            <div class="texto">
+              <h3>Documento y envío</h3>
+              <p>Al emitirlo, el presupuesto recibe su número y <b>queda congelado</b>. El documento para el cliente se descarga en PDF y se envía por WhatsApp o correo con un mensaje ya redactado.</p>
+              <div class="regla"><span class="etiqueta">Regla</span><p>El cliente solo ve precios finales. El descuento, la categoría comercial y el recargo interno nunca aparecen en el documento.</p></div>
+            </div>
+          </article>
+          <article class="panel" role="tabpanel" id="paso-4" aria-labelledby="tab-4" hidden>
+            <figure><img src="img/paso-4.jpg" alt="Diálogo para registrar la decisión del cliente sobre el presupuesto PR-00047, con la aceptación por WhatsApp" width="1600" height="1000" loading="lazy"></figure>
+            <div class="texto">
+              <h3>Decisión del cliente</h3>
+              <p>Se registra quién confirmó, por qué medio y cuándo. Si el cliente rechaza, hay que elegir un <b>motivo de una lista</b>: así queda registrado por qué se pierde cada trabajo.</p>
+              <div class="regla"><span class="etiqueta">Regla</span><p>Aceptar dos veces, o hacer doble clic, nunca crea dos órdenes. La operación es atómica en la base de datos.</p></div>
+            </div>
+          </article>
+          <article class="panel" role="tabpanel" id="paso-5" aria-labelledby="tab-5" hidden>
+            <figure><img src="img/paso-5.jpg" alt="Detalle de la orden de trabajo OT-00123 en reparación, con su recorrido de etapas, la ruta del taller y el presupuesto vigente" width="1600" height="1000" loading="lazy"></figure>
+            <div class="texto">
+              <h3>Orden de trabajo</h3>
+              <p>La orden recorre cinco etapas, con la próxima acción siempre a la vista. En diagnóstico se cargan <b>mediciones con tolerancia</b>; si hace falta, se emite una revisión del presupuesto para que el cliente la apruebe.</p>
+              <div class="etapas" aria-label="Etapas de una orden">
+                <span style="--c: var(--st-ingreso)">Ingreso</span>
+                <span style="--c: var(--st-diagnostico)">Diagnóstico</span>
+                <span style="--c: var(--st-aprobacion)">Aprobación</span>
+                <span style="--c: var(--st-reparacion)">Reparación</span>
+                <span style="--c: var(--st-entrega)">Entrega</span>
+              </div>
+              <div class="regla"><span class="etiqueta">Regla</span><p>La seña se registra en la orden y el sistema avisa si falta, pero nunca bloquea el trabajo.</p></div>
+            </div>
+          </article>
+          <article class="panel" role="tabpanel" id="paso-6" aria-labelledby="tab-6" hidden>
+            <figure><img src="img/paso-6.jpg" alt="Vista de islas del taller: cigüeñales, tapas de cilindros, bielas, mecanizado de block y armado, con las órdenes de cada una" width="1600" height="1000" loading="lazy"></figure>
+            <div class="texto">
+              <h3>Taller por islas</h3>
+              <p>El taller trabaja por estaciones: cigüeñales, tapas de cilindros, bielas, block, armado. Cada orden sigue su <b>ruta de islas</b> y cada pieza tiene su ubicación, incluido el trabajo en terceros. La <b>hoja de taller</b> se imprime con las operaciones y sin un solo importe.</p>
+              <div class="regla"><span class="etiqueta">Regla</span><p>El personal de planta no recibe ningún precio, ni en pantalla ni desde la base de datos.</p></div>
+            </div>
+          </article>
+          <article class="panel" role="tabpanel" id="paso-7" aria-labelledby="tab-7" hidden>
+            <figure class="documento-impreso">
+              <img src="img/paso-7.jpg" alt="Constancia de recepción N.º 1 con las piezas recibidas y su estado al recibir" width="1272" height="1115" loading="lazy">
+              <img class="celular" src="img/paso-7-celular.jpg" alt="Pantalla del celular para sacar fotos de la orden OT-00119 con tomas sugeridas" width="520" height="1125" loading="lazy">
+            </figure>
+            <div class="texto">
+              <h3>Recepción y fotos</h3>
+              <p>Las piezas sueltas se reciben con su <b>estado al recibir</b> y una constancia que el cliente firma. Desde el celular, el taller saca fotos guiadas de cada orden.</p>
+              <div class="regla"><span class="etiqueta">Regla</span><p>Toda foto nace interna: solo administración y gerencia deciden cuáles se comparten con el cliente.</p></div>
+            </div>
+          </article>
+
+          <div class="navegacion" style="margin-top: 18px">
+            <button class="boton" type="button" id="anterior">← Anterior</button>
+            <button class="boton primario" type="button" id="siguiente">Siguiente →</button>
+            <span class="contador" id="contador">1 / 7</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="bloque" id="cronograma">
+    <div class="envoltura">
+      <div class="encabezado">
+        <span class="etiqueta">Cronograma</span>
+        <h2>Lo que planificamos y lo que hicimos.</h2>
+        <p class="bajada">Arriba, el plan original de doce semanas. Debajo, la ejecución real, con fechas tomadas del historial del repositorio. Elegí una fase para ver sus tareas, responsables y entregables.</p>
+      </div>
+
+      <div class="linea-tiempo">
+        <div class="lt-fila lt-cabecera" aria-hidden="true">
+          <div class="lt-nombre"></div>
+          <div class="pista" id="meses"></div>
+        </div>
+        <div class="lt-filas" id="filas"></div>
+        <div class="lt-leyenda">
+          <span><i class="muestra" style="background: var(--plan)"></i>Plan original de 12 semanas</span>
+          <span><i class="muestra"></i>Ejecución real, color por fase</span>
+          <span><i class="muestra" style="width: 10px; height: 10px; transform: rotate(45deg); background: var(--surface); border: 2px solid var(--muted); border-radius: 0"></i>Hito</span>
+          <span><i class="muestra" style="width: 2px; height: 14px; background: var(--f7); border-radius: 0"></i>Entrega, 25/11</span>
+        </div>
+      </div>
+
+      <div class="detalle-fase" id="detalle" aria-live="polite"></div>
+
+      <div class="desvios">
+        <article>
+          <h3>El MVP llegó antes</h3>
+          <p>El recorrido completo, del presupuesto a la orden, quedó cerrado el 16/10: casi tres semanas antes de la muestra final prevista para el 04/11.</p>
+        </article>
+        <article>
+          <h3>La empresa reorientó el final</h3>
+          <p>CAPEAR planteó pedidos concretos: listas de precios, recepción de piezas, seña, hoja de taller. Los resolvimos en cuatro sprints cortos.</p>
+        </article>
+        <article>
+          <h3>Terminó en producción</h3>
+          <p>El plan apuntaba a una demostración con datos ficticios. Desde el 12/11 el sistema funciona en el taller, con su propia base de datos.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="bloque" id="equipo">
+    <div class="envoltura">
+      <div class="encabezado">
+        <span class="etiqueta">Equipo</span>
+        <h2>Tres personas, un área cada una.</h2>
+        <p class="bajada">Cada integrante es responsable de un área y colabora en las de los demás.</p>
+      </div>
+      <div class="equipo">
+        <article class="persona">
+          <span class="cara" aria-hidden="true">SP</span>
+          <div><h3>Santiago Postiglione</h3><p class="rol">Líder de proyecto, visión de producto y desarrollo full stack</p></div>
+          <ul>
+            <li>Visión del producto y arquitectura del sistema.</li>
+            <li>Nexo con CAPEAR: relevamiento, validación y demostraciones.</li>
+            <li>Desarrollo de la interfaz y del servidor, integración y despliegues.</li>
+          </ul>
+        </article>
+        <article class="persona">
+          <span class="cara" aria-hidden="true">RH</span>
+          <div><h3>Ricardo Hernández</h3><p class="rol">Planificación y diseño UX/UI</p></div>
+          <ul>
+            <li>Plan de desarrollo, cronograma, diagrama de Gantt e hitos.</li>
+            <li>Maquetas, flujos de pantalla y sistema visual.</li>
+            <li>Manual del usuario.</li>
+          </ul>
+        </article>
+        <article class="persona">
+          <span class="cara" aria-hidden="true">TS</span>
+          <div><h3>Thiago Soria</h3><p class="rol">Base de datos y calidad (QA)</p></div>
+          <ul>
+            <li>Modelo de datos, migraciones y reglas de acceso por rol.</li>
+            <li>Casos de prueba de las reglas críticas y de la base de datos.</li>
+            <li>Recorridos de extremo a extremo y seguimiento de hallazgos.</li>
+          </ul>
+        </article>
+      </div>
+      <div class="contexto">
+        <span><b>Docente:</b> Hugo Rodríguez</span>
+        <span><b>Institución:</b> Instituto La Salette, 6.º año, orientación Computación</span>
+        <span><b>Empresa:</b> Rectificaciones CAPEAR</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="bloque" id="tecnica">
+    <div class="envoltura">
+      <div class="encabezado">
+        <span class="etiqueta">Cómo está hecho</span>
+        <h2>Las reglas del negocio viven en la base de datos.</h2>
+        <p class="bajada">La interfaz ayuda, pero quien decide qué puede ver y hacer cada usuario es el servidor. Por eso el rol de planta no puede pedir un precio aunque lo intente.</p>
+      </div>
+      <div class="arquitectura">
+        <div class="capa">
+          <span class="etiqueta">En el navegador</span>
+          <h3>Aplicación web de escritorio</h3>
+          <p>Pantallas por módulo, cálculos de dinero exactos y formularios validados. El ingreso y la carga de fotos funcionan también en el celular.</p>
+          <div class="chips"><span>React 19</span><span>TypeScript estricto</span><span>Vite</span><span>React Router</span><span>Zod</span></div>
+        </div>
+        <div class="capa">
+          <span class="etiqueta">En el servidor</span>
+          <h3>Base de datos y reglas</h3>
+          <p>PostgreSQL con seguridad por fila según el rol, operaciones atómicas, auditoría de cada acción crítica y fotos en almacenamiento privado.</p>
+          <div class="chips"><span>Supabase</span><span>PostgreSQL</span><span>Autenticación</span><span>Edge Functions</span></div>
+        </div>
+        <div class="capa">
+          <span class="etiqueta">Publicación</span>
+          <h3>Sitio y procesos automáticos</h3>
+          <p>El sitio se sirve desde Cloudflare. Cada semana una función busca la nueva versión de la lista FACRA para que administración la revise y active.</p>
+          <div class="chips"><span>Cloudflare Workers</span><span>Tareas programadas</span><span>GitHub</span></div>
+        </div>
+      </div>
+      <div class="calidad">
+        <div><b>13.147</b><span>pruebas unitarias y de componentes</span></div>
+        <div><b>203</b><span>pruebas de extremo a extremo en el navegador</span></div>
+        <div><b>68</b><span>archivos de pruebas de la base de datos</span></div>
+        <div><b>0</b><span>advertencias permitidas por el análisis estático</span></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="pie">
+  <div class="envoltura">
+    <p><b>Documentación completa:</b> Plan de Desarrollo de Software, Manual del Usuario e Informe Técnico-Funcional, en un documento de 119 páginas dentro del repositorio del proyecto (<span class="codigo">documentacion/</span>).</p>
+    <p>Capturas tomadas con datos ficticios de demostración. © 2026 Valiora, Licencia Comercial de Valiora. Proyecto de Prácticas Profesionalizantes del Instituto La Salette.</p>
+  </div>
+</footer>
+
+<script>
+  // Recorrido: pestañas con flechas del teclado y botones Anterior / Siguiente.
+  (function () {
+    const pestanas = [...document.querySelectorAll('.paso')];
+    const paneles = pestanas.map((p) => document.getElementById(p.getAttribute('aria-controls')));
+    const contador = document.getElementById('contador');
+    const anterior = document.getElementById('anterior');
+    const siguiente = document.getElementById('siguiente');
+    let actual = 0;
+
+    function mostrar(i, enfocar) {
+      actual = (i + pestanas.length) % pestanas.length;
+      pestanas.forEach((p, k) => {
+        const activa = k === actual;
+        p.setAttribute('aria-selected', String(activa));
+        p.tabIndex = activa ? 0 : -1;
+        paneles[k].hidden = !activa;
+      });
+      contador.textContent = `${actual + 1} / ${pestanas.length}`;
+      anterior.disabled = actual === 0;
+      siguiente.textContent = actual === pestanas.length - 1 ? 'Volver al inicio ↺' : 'Siguiente →';
+      const pestana = pestanas[actual];
+      pestana.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      if (enfocar) pestana.focus();
+    }
+
+    pestanas.forEach((p, k) => {
+      p.addEventListener('click', () => mostrar(k, false));
+      p.addEventListener('keydown', (e) => {
+        if (['ArrowDown', 'ArrowRight'].includes(e.key)) { e.preventDefault(); mostrar(actual + 1, true); }
+        if (['ArrowUp', 'ArrowLeft'].includes(e.key)) { e.preventDefault(); mostrar(actual - 1, true); }
+        if (e.key === 'Home') { e.preventDefault(); mostrar(0, true); }
+        if (e.key === 'End') { e.preventDefault(); mostrar(pestanas.length - 1, true); }
+      });
+    });
+    anterior.addEventListener('click', () => mostrar(actual - 1, false));
+    siguiente.addEventListener('click', () => mostrar(actual + 1, false));
+    anterior.disabled = true;
+  })();
+
+  // Cronograma: datos del Plan de Desarrollo (sección 8), una fila por fase.
+  (function () {
+    const DESDE = Date.parse('2026-07-20T00:00:00Z');
+    const HASTA = Date.parse('2026-12-01T00:00:00Z');
+    const pct = (d) => ((Date.parse(d + 'T00:00:00Z') - DESDE) / (HASTA - DESDE)) * 100;
+    const finPct = (d) => pct(d) + (86400000 / (HASTA - DESDE)) * 100;
+    const ddmm = (d) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
+
+    const PLAN = [
+      { nombre: 'Mes 1: prototipo consolidado', desde: '2026-08-13', hasta: '2026-09-09' },
+      { nombre: 'Mes 2: núcleo de presupuestación', desde: '2026-09-10', hasta: '2026-10-07' },
+      { nombre: 'Mes 3: flujo integrado y cierre', desde: '2026-10-08', hasta: '2026-11-04' },
+    ];
+    const MUESTRAS = ['2026-09-09', '2026-10-07', '2026-11-04'];
+
+    const FASES = [
+      { id: '1', nombre: 'Inicio y relevamiento', color: 'var(--f1)', hitos: [['2026-08-05', 'Propuesta entregada a CAPEAR']], tareas: [
+        ['1.1', 'Relevamiento, propuesta funcional y matriz de validación', '2026-08-01', '2026-08-05', 'Santiago y Ricardo', 'Propuesta v1.1, matriz y maquetas'],
+      ] },
+      { id: '2', nombre: 'Prototipo y validación', color: 'var(--f2)', hitos: [], tareas: [
+        ['2.1', 'Especificación y prototipo navegable (17 pantallas)', '2026-08-06', '2026-08-10', 'Santiago y Ricardo', 'Prototipo con datos de prueba'],
+        ['2.2', 'Plan de 12 semanas y especificación del incremento 2', '2026-08-11', '2026-08-13', 'Ricardo y Santiago', 'Plan de 12 semanas'],
+        ['2.3', 'Versión 1.1 del prototipo', '2026-08-14', '2026-08-28', 'Santiago y Thiago', 'Prototipo v1.1'],
+        ['2.4', 'Persistencia local de los flujos del MVP', '2026-08-29', '2026-09-29', 'Santiago', 'Flujos que sobreviven a la recarga'],
+      ] },
+      { id: '3', nombre: 'MVP funcional con base de datos', color: 'var(--f3)', hitos: [['2026-10-16', 'MVP cerrado']], tareas: [
+        ['3.1', 'Rediseño UX/UI y sistema de diseño', '2026-09-30', '2026-10-09', 'Ricardo y Santiago', 'PR #1'],
+        ['3.2', 'Integración con Supabase: base de datos, autenticación y seguridad', '2026-10-01', '2026-10-09', 'Thiago y Santiago', 'PR #2'],
+        ['3.3', 'Incremento 2, islas del taller, fotos, descuentos y envío', '2026-10-09', '2026-10-13', 'Santiago y Thiago', 'PR #3 a #10'],
+        ['3.4', 'Cierre del MVP, líneas manuales e integración continua', '2026-10-14', '2026-10-18', 'Santiago y Thiago', 'MVP cerrado'],
+      ] },
+      { id: '4', nombre: 'Sprints con el cliente', color: 'var(--f4)', hitos: [], tareas: [
+        ['4.1', 'Sprint 1: presupuestación confiable (FACRA)', '2026-10-19', '2026-10-23', 'Santiago y Thiago', 'PR #11'],
+        ['4.2', 'Sprint 2: repuestos CRABA y recepción de piezas', '2026-10-21', '2026-10-23', 'Santiago y Thiago', 'PR #13'],
+        ['4.3', 'Sprint 3: lote comercial y taller', '2026-10-21', '2026-10-23', 'Santiago, Ricardo y Thiago', 'PR #14'],
+        ['4.4', 'Sprint 4: portal del cliente (beta)', '2026-10-23', '2026-10-24', 'Santiago y Ricardo', 'PR #16'],
+      ] },
+      { id: '5', nombre: 'Rediseño asistido', color: 'var(--f5)', hitos: [], tareas: [
+        ['5.1', 'Prototipo de referencia y validación de UX', '2026-10-24', '2026-10-27', 'Ricardo y Santiago', 'Especificación del rediseño'],
+        ['5.2', 'F0 a F2: base visual, navegación y componentes', '2026-10-27', '2026-10-29', 'Santiago y Ricardo', 'PR #17'],
+        ['5.3', 'F3 a F7: Inicio, Órdenes, Presupuestos, Clientes, Catálogo', '2026-10-29', '2026-11-03', 'Santiago, Ricardo y Thiago', 'PR #18 a #23'],
+        ['5.4', 'F8: estadísticas comerciales', '2026-11-04', '2026-11-06', 'Santiago y Thiago', 'PR #25'],
+      ] },
+      { id: '6', nombre: 'Puesta en producción', color: 'var(--f6)', hitos: [['2026-11-05', 'Entorno de prueba'], ['2026-11-12', 'En producción']], tareas: [
+        ['6.1', 'Modelos de vehículo y datos de referencia', '2026-11-07', '2026-11-11', 'Thiago y Santiago', 'PR #26'],
+        ['6.2', 'Perfil de la entrega 2 y QA con el usuario', '2026-11-11', '2026-11-12', 'Thiago, Santiago y Ricardo', 'Informe de QA, PR #27 a #33'],
+        ['6.3', 'Correcciones finales y despliegue', '2026-11-12', '2026-11-13', 'Santiago', 'PR #34 a #39'],
+      ] },
+      { id: '7', nombre: 'Cierre académico', color: 'var(--f7)', hitos: [['2026-11-25', 'Entrega']], tareas: [
+        ['7.1', 'Plan, manual de usuario, informe técnico y publicación', '2026-11-20', '2026-11-25', 'Ricardo, Santiago y Thiago', 'Documentación y repositorio'],
+      ] },
+    ];
+
+    // Meses de la escala.
+    const meses = document.getElementById('meses');
+    [['2026-07-20', 'Julio', 'Jul'], ['2026-08-01', 'Agosto', 'Ago'], ['2026-09-01', 'Septiembre', 'Sep'], ['2026-10-01', 'Octubre', 'Oct'], ['2026-11-01', 'Noviembre', 'Nov']].forEach(([d, n, c], i, todos) => {
+      const el = document.createElement('span');
+      el.className = 'mes';
+      el.style.left = pct(d) + '%';
+      el.style.width = ((i + 1 < todos.length ? pct(todos[i + 1][0]) : 100) - pct(d)) + '%';
+      el.innerHTML = `<span class="largo">${n}</span><span class="corto">${c}</span>`;
+      if (i === 0) el.style.borderLeft = '0';
+      meses.append(el);
+    });
+
+    const filas = document.getElementById('filas');
+    const guias = document.createElement('div');
+    guias.className = 'guias';
+    guias.setAttribute('aria-hidden', 'true');
+    guias.innerHTML = ['2026-08-01', '2026-09-01', '2026-10-01', '2026-11-01'].map((d) => `<i style="left:${pct(d)}%"></i>`).join('')
+      + `<i class="entrega" style="left:${pct('2026-11-25') + (finPct('2026-11-25') - pct('2026-11-25')) / 2}%"></i>`;
+    filas.append(guias);
+
+    // Fila del plan original (no seleccionable).
+    const plan = document.createElement('div');
+    plan.className = 'lt-fila';
+    plan.style.padding = '6px 0';
+    plan.innerHTML = `<div class="lt-nombre"><span class="codigo">P</span>Plan original</div><div class="pista">${PLAN.map((p) =>
+      `<span class="barra-fase plan" title="${p.nombre}: ${ddmm(p.desde)} a ${ddmm(p.hasta)}" style="left:${pct(p.desde)}%;width:${finPct(p.hasta) - pct(p.desde)}%;margin-left:1px"></span>`).join('')}${MUESTRAS.map((d, i) =>
+      `<span class="hito" title="Muestra ${i + 1} prevista: ${ddmm(d)}" style="--c: var(--muted);left:${(pct(d) + finPct(d)) / 2}%"></span>`).join('')}</div>`;
+    filas.append(plan);
+    const sep = document.createElement('div');
+    sep.className = 'lt-separador';
+    filas.append(sep);
+
+    const detalle = document.getElementById('detalle');
+    const botones = FASES.map((f) => {
+      const desde = f.tareas.map((t) => t[2]).sort()[0];
+      const hasta = f.tareas.map((t) => t[3]).sort().at(-1);
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'lt-fila';
+      b.setAttribute('aria-pressed', 'false');
+      b.setAttribute('aria-controls', 'detalle');
+      b.style.setProperty('--c', f.color);
+      const cortes = f.tareas.slice(1).map((t) => {
+        const izquierda = ((pct(t[2]) - pct(desde)) / (finPct(hasta) - pct(desde))) * 100;
+        return izquierda > 2 && izquierda < 98 ? `<i class="tarea" style="left:${izquierda}%"></i>` : '';
+      }).join('');
+      b.innerHTML = `<span class="lt-nombre"><span class="codigo">${f.id}</span>${f.nombre}</span>
+        <span class="pista"><span class="barra-fase" style="left:${pct(desde)}%;width:${finPct(hasta) - pct(desde)}%">${cortes}</span>${f.hitos.map(([d, n]) =>
+          `<span class="hito" title="${n}: ${ddmm(d)}" style="left:${(pct(d) + finPct(d)) / 2}%"></span>`).join('')}</span>`;
+      b.addEventListener('click', () => elegir(f, b));
+      filas.append(b);
+      return { f, b, desde, hasta };
+    });
+
+    function elegir(f, b) {
+      botones.forEach((x) => x.b.setAttribute('aria-pressed', String(x.b === b)));
+      const { desde, hasta } = botones.find((x) => x.f === f);
+      const hitos = f.hitos.length ? ` · Hitos: ${f.hitos.map(([d, n]) => `${n} (${ddmm(d)})`).join(', ')}` : '';
+      detalle.style.setProperty('--c', f.color);
+      detalle.innerHTML = `<header><h3>Fase ${f.id}: ${f.nombre}</h3><span>${ddmm(desde)} al ${ddmm(hasta)}${hitos}</span></header>
+        <div class="tabla"><table><thead><tr><th>Tarea</th><th>Fechas</th><th>Responsables</th><th>Entregable</th></tr></thead><tbody>${f.tareas.map((t) =>
+          `<tr><td><span class="codigo" style="color: var(--muted)">${t[0]}</span> ${t[1]}</td><td class="fechas">${ddmm(t[2])}–${ddmm(t[3])}${t[6] ? '<br><span class="estimada">estimada</span>' : ''}</td><td>${t[4]}</td><td>${t[5]}</td></tr>`).join('')}</tbody></table></div>`;
+    }
+    const inicial = botones.find((x) => x.f.id === '4');
+    elegir(inicial.f, inicial.b);
+  })();
+</script>
